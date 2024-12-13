@@ -1,96 +1,102 @@
-import os
 import openai
+import os
+import tiktoken
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
-openai_api_key = os.getenv("OPENAI_API_KEY")
-
-openai.api_key = openai_api_key
-
-
-def read_article(filename):
+def load_dotenv():
     try:
-        with open(filename, 'r', encoding='utf-8') as file:
-            return file.read()
-    except FileNotFoundError:
-        print(f"Plik {filename} nie został znaleziony.")
-        return ""
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+    except Exception as e:
+        print("Wystąpił błąd podczas pobierania klucza API z pliku .env:", e)
 
 
-def read_template(filename):
+def ask_gpt4o(question, model):
     try:
-        with open(filename, 'r', encoding='utf-8') as file:
-            return file.read()
-    except FileNotFoundError:
-        print(f"Plik szablonu {filename} nie został znaleziony.")
-        return ""
-
-
-def generate_html_body(article_text):
-    prompt = f"""
-    Przekształć przekazany artykuł na zawartość HTML. 
-    Na samym początku dodaj tytuł jaki może mieć ten artyków, nie używaj do tego wyrazów jakie znajdują sie w artykule
-    Tekst artykułu ma być w klasie container
-    Zastosuj także odpowiednie znaczniki HTML do hierarchii treści i podziału na sekcje. 
-    Dodaj tagi <img src="image_placeholder.jpg" alt="opis obrazka"> tam, gdzie odpowiednie są obrazy, najlepiej nad tytułem każdej sekcji.
-    Na końcu dodaj sekcję <footer> z prostym tekstem.
-
-    Artykuł:
-    {article_text}
-    """
-    try:
+        prompt = f"Generate an article on the following topic. The article should contain a title and at least two paragraphs with two <p></p> section:\n\n{question}\n"
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=3000,
-            temperature=0.7
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500,
+            temperature=0.7,
+            stop=None
         )
-
-        html_body = response['choices'][0]['message']['content'].strip()
-        print("Zawartość <body> wygenerowana pomyślnie.")
-        return html_body
+        return response['choices'][0]['message']['content'].strip()
     except Exception as e:
         print("Wystąpił błąd podczas komunikacji z API OpenAI:", e)
-        return ""
+        return "Nie udało się uzyskać odpowiedzi."
 
 
-def combine_template_with_body(template, body_content):
+def count_tokens(text, model):
     try:
-        updated_html = template.replace("<body>", f"<body>\n{body_content}")
-        return updated_html
+        encoding = tiktoken.encoding_for_model(model)
+        tokens = encoding.encode(text)
+        return len(tokens)
+    except KeyError:
+        print(f"Nie znaleziono kodowania dla modelu {model}. Używam domyślnego kodowania.")
+        encoding = tiktoken.get_encoding("cl100k_base")
+        tokens = encoding.encode(text)
+        return len(tokens)
+
+
+def read_file(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read().strip()
+        return content
     except Exception as e:
-        print("Wystąpił błąd podczas łączenia szablonu z treścią body:", e)
-        return template
+        print(f"Nie udało się wczytać pliku: {e}")
+        return 0
 
 
-def save_html_to_file(html_content, filename):
+def create_html_page(title, content, template_path="szablon.html"):
     try:
-        with open(filename, 'w', encoding='utf-8') as file:
+        with open(template_path, 'r', encoding='utf-8') as template_file:
+            template = template_file.read()
+
+        html_content = template.replace("{{title}}", title).replace("{{content}}", content)
+
+        return html_content
+    except Exception as e:
+        print(f"Nie udało się wczytać lub przetworzyć szablonu: {e}")
+        return 0
+
+def get_content(article):
+    content = "\n".join(article.split("\n")[1:]).strip()
+    return content
+
+model = "gpt-4o-mini"
+file_path = "tiger article.txt"
+
+content_from_file = read_file(file_path)
+
+if content_from_file:
+    article = ask_gpt4o(content_from_file, model)
+
+    title = article.split("\n")[0].replace("*", "").replace("#", "").strip()
+
+    content = "\n".join(article.split("\n")[1:]).strip()
+
+    html_content = create_html_page(title, content = re.sub(r'```|html|#', '', content))
+
+    print("Title:", title)
+    print("Content:", content)
+
+    plik = open('wynik.html', 'w')
+    plik.write(html_content)
+    plik.close()
+
+    open("wynik.html")
+
+    if html_content:
+        with open('wynik.html', 'w', encoding='utf-8') as file:
             file.write(html_content)
-        print(f"Kod HTML zapisany w pliku: {filename}")
-    except Exception as e:
-        print(f"Wystąpił błąd podczas zapisywania pliku {filename}:", e)
 
+        os.startfile("wynik.html")
 
-def main():
-    article_text = read_article("input_article.txt")
-    if not article_text:
-        return
+    print("\nWygenerowany artykuł:\n", article)
 
-    body_content = generate_html_body(article_text)
-    if not body_content:
-        return
-
-    template_html = read_template("szablon.html")
-    if not template_html:
-        return
-
-    final_html = combine_template_with_body(template_html, body_content)
-
-    save_html_to_file(final_html, "artykul.html")
-
-
-if __name__ == "__main__":
-    main()
+    print("\nTreść z pliku zajęła ", count_tokens(content_from_file, model), " tokenów")
+    print("Artykuł zajęł ", count_tokens(article, model), " tokenów")
+    print("Łącznie ", count_tokens(article, model) + count_tokens(content_from_file, model), " tokenów")
