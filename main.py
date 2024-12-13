@@ -5,12 +5,7 @@ import re
 from dotenv import load_dotenv
 
 load_dotenv()
-def load_dotenv():
-    try:
-        openai.api_key = os.getenv("OPENAI_API_KEY")
-    except Exception as e:
-        print("Wystąpił błąd podczas pobierania klucza API z pliku .env:", e)
-
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def ask_gpt4o(question, model):
     try:
@@ -61,10 +56,6 @@ def create_html_page(title, content, template_path="szablon.html"):
     except Exception as e:
         print(f"Nie udało się wczytać lub przetworzyć szablonu: {e}")
         return 0
-
-def get_content(article):
-    content = "\n".join(article.split("\n")[1:]).strip()
-    return content
 
 model = "gpt-4o-mini"
 file_path = "tiger article.txt"
