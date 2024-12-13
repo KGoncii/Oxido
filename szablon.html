@@ -41,13 +41,12 @@
             margin: 20px 0;
         }
 
-        article h2 {
+        article h2, article h1 {
             font-size: 2rem;
             margin-top: 30px;
             color: #333;
         }
 
-        /* Dodatkowy styl dla linków */
         a {
             color: #4CAF50;
             text-decoration: none;
@@ -56,14 +55,21 @@
         a:hover {
             text-decoration: underline;
         }
+
+	footer {
+    	    text-align: center;
+            background-color: #f1f1f1;
+    	    padding: 20px;
+    	    font-size: 14px;
+    	    color: #555;
+    	    border-top: 1px solid #ccc;
+	}
     </style>
 </head>
 <body>
     <header>
         <h1>{{title}}</h1>
     </header>
-    <article>
-        <p>{{content}}</p>
-    </article>
+        {{content}}
 </body>
 </html>

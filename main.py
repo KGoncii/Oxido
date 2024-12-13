@@ -9,12 +9,19 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def ask_gpt4o(question, model):
     try:
-        prompt = f"Generate an article on the following topic. The article should contain a title and at least two paragraphs with two <p></p> section:\n\n{question}\n"
+        prompt = (f"""
+        Write a detailed inside of HTML <article> tag on the topic: '{question}' using proper semantic structure. Follow these guidelines:
+        1.Use appropriate <section> tags to divide the content into logical parts, such as overview, introduction, main content, and conclusion.
+        2.Ensure that each paragraph is wrapped in <p> tags. 
+        3.Do not use <header> tags and anything other then inside of <article> tag. 
+        4.First verb must be title without <title> tag, then <article> tag.   
+        5.After </article> include <footer> tag, with elements like author name, publication date, and related links.      
+                  """)
         response = openai.ChatCompletion.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500,
-            temperature=0.7,
+            temperature=1,
             stop=None
         )
         return response['choices'][0]['message']['content'].strip()
@@ -58,13 +65,13 @@ def create_html_page(title, content, template_path="szablon.html"):
         return 0
 
 model = "gpt-4o-mini"
-file_path = "tiger article.txt"
+file_path = "article.txt"
 
 content_from_file = read_file(file_path)
 
 if content_from_file:
     article = ask_gpt4o(content_from_file, model)
-
+    article = re.sub(r'```|html|#', "", article).strip()
     title = article.split("\n")[0].replace("*", "").replace("#", "").strip()
 
     content = "\n".join(article.split("\n")[1:]).strip()
